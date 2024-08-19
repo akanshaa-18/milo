@@ -48,7 +48,6 @@ export const CONFIG = {
   features: [
     'gnav-brand',
     'gnav-promo',
-    'search',
     'profile',
     'app-launcher',
     'adobe-logo',
@@ -271,7 +270,6 @@ class Gnav {
         rawElem: this.content.querySelector('.profile'),
         decoratedElem: toFragment`<div class="feds-profile"></div>`,
       },
-      search: { config: { icon: CONFIG.icons.search } },
       breadcrumbs: { wrapper: '' },
     };
 
@@ -360,25 +358,14 @@ class Gnav {
     // Ensure correct DOM order for elements between mobile and desktop
     isDesktop.addEventListener('change', () => {
       if (isDesktop.matches) {
-        // On desktop, search is after nav
-        if (this.elements.mainNav instanceof HTMLElement
-          && this.elements.search instanceof HTMLElement) {
-          this.elements.mainNav.after(this.elements.search);
-        }
-
         // On desktop, breadcrumbs are below the whole nav
         if (this.elements.topnav instanceof HTMLElement
           && this.elements.breadcrumbsWrapper instanceof HTMLElement) {
           this.elements.topnav.after(this.elements.breadcrumbsWrapper);
         }
       } else {
-        // On mobile, nav is after search
-        if (this.elements.mainNav instanceof HTMLElement
-          && this.elements.search instanceof HTMLElement) {
-          this.elements.mainNav.before(this.elements.search);
-        }
 
-        // On mobile, breadcrumbs are before the search and nav
+        // On mobile, breadcrumbs are before the nav
         if (this.elements.navWrapper instanceof HTMLElement
           && this.elements.breadcrumbsWrapper instanceof HTMLElement) {
           this.elements.navWrapper.prepend(this.elements.breadcrumbsWrapper);
@@ -405,15 +392,6 @@ class Gnav {
       try {
         this.block.removeEventListener('click', this.loadDelayed);
         this.block.removeEventListener('keydown', this.loadDelayed);
-        if (this.searchPresent()) {
-          const [
-            Search,
-          ] = await Promise.all([
-            loadBlock('../features/search/gnav-search.js'),
-            loadStyles(rootPath('features/search/gnav-search.css')),
-          ]);
-          this.Search = Search;
-        }
 
         if (!this.useUniversalNav) {
           const [ProfileDropdown] = await Promise.all([
@@ -653,16 +631,6 @@ class Gnav {
     webappPrompt.default({ promptPath, entName, parent: this.blocks.universalNav, getAnchorState });
   };
 
-  loadSearch = () => {
-    const instanceAlreadyExists = !!this.blocks?.search?.instance;
-    const searchNotInContent = !this.searchPresent();
-    if (instanceAlreadyExists || searchNotInContent) return null;
-
-    return this.loadDelayed().then(() => {
-      this.blocks.search.instance = new this.Search(this.blocks.search.config);
-    }).catch(() => {});
-  };
-
   isToggleExpanded = () => this.elements.mobileToggle?.getAttribute('aria-expanded') === 'true';
 
   toggleMenuMobile = () => {
@@ -700,12 +668,6 @@ class Gnav {
     const onToggleClick = async () => {
       this.toggleMenuMobile();
 
-      if (this.blocks?.search?.instance) {
-        this.blocks.search.instance.clearSearchForm();
-      } else {
-        await this.loadSearch();
-      }
-
       if (this.isToggleExpanded()) setHamburgerPadding();
     };
 
@@ -717,7 +679,6 @@ class Gnav {
         this.elements.navWrapper.classList.remove('feds-nav-wrapper--expanded');
         setCurtainState(false);
         closeAllDropdowns();
-        this.blocks?.search?.instance?.clearSearchForm();
       }
     };
 
@@ -809,9 +770,7 @@ class Gnav {
     this.elements.navWrapper = toFragment`
       <div class="feds-nav-wrapper" id="feds-nav-wrapper">
         ${breadcrumbs}
-        ${isDesktop.matches ? '' : this.decorateSearch()}
         ${this.elements.mainNav}
-        ${isDesktop.matches ? this.decorateSearch() : ''}
       </div>
     `;
 
@@ -970,36 +929,6 @@ class Gnav {
     const createBreadcrumbs = await loadBlock('../features/breadcrumbs/breadcrumbs.js');
     this.elements.breadcrumbsWrapper = await createBreadcrumbs(breadcrumbsElem);
     return this.elements.breadcrumbsWrapper;
-  };
-
-  searchPresent = () => !!this.content.querySelector('.search');
-
-  decorateSearch = () => {
-    if (!this.searchPresent()) return null;
-
-    this.blocks.search.config.trigger = toFragment`
-      <button class="feds-search-trigger" aria-label="Search" aria-expanded="false" aria-controls="feds-search-bar" daa-ll="Search">
-        ${this.blocks.search.config.icon}
-        <span class="feds-search-close"></span>
-      </button>`;
-
-    this.elements.search = toFragment`
-      <div class="feds-search">
-        ${this.blocks.search.config.trigger}
-      </div>`;
-
-    // Replace the aria-label value once placeholder is fetched
-    replaceKey('search', getFedsPlaceholderConfig()).then((placeholder) => {
-      if (placeholder && placeholder.length) {
-        this.blocks.search.config.trigger.setAttribute('aria-label', placeholder);
-      }
-    });
-
-    this.blocks.search.config.trigger.addEventListener('click', async () => {
-      await this.loadSearch();
-    });
-
-    return this.elements.search;
   };
 }
 

@@ -1,29 +1,7 @@
 /* eslint-disable class-methods-use-this */
-import { getNextVisibleItemPosition, getPreviousVisibleItemPosition, selectors } from './utils.js';
+import { selectors } from './utils.js';
 import MainNav from './mainNav.js';
 import { closeAllDropdowns, lanaLog, logErrorFor } from '../utilities.js';
-
-const cycleOnOpenSearch = ({ e, isDesktop }) => {
-  const withoutBreadcrumbs = [
-    ...document.querySelectorAll(`
-      ${selectors.brand},
-      ${selectors.mainNavToggle},
-      ${selectors.mainNavItems},
-      ${selectors.searchTrigger},
-      ${selectors.searchField},
-      ${selectors.signIn},
-      ${selectors.profileButton},
-      ${selectors.logo}
-  `),
-  ];
-  const first = getNextVisibleItemPosition(-1, withoutBreadcrumbs);
-  const last = getPreviousVisibleItemPosition(withoutBreadcrumbs.length, withoutBreadcrumbs);
-  const openSearch = isDesktop && document.querySelector(selectors.openSearch);
-  if (openSearch && document.activeElement === withoutBreadcrumbs[e.shiftKey ? first : last]) {
-    e.preventDefault();
-    withoutBreadcrumbs[e.shiftKey ? last : first].focus();
-  }
-};
 
 const openProfile = ({ e, el }) => {
   const button = e.target.closest(`${selectors.signIn}, ${selectors.profileButton}`);
@@ -89,7 +67,6 @@ class KeyboardNavigation {
         el.addEventListener('keydown', (e) => logErrorFor(() => {
           switch (e.code) {
             case 'Tab': {
-              cycleOnOpenSearch({ e, isDesktop: this.desktop.matches });
               const { items } = getProfileItems({ e });
 
               const profileBtn = e.target.closest(`${selectors.signIn}, ${selectors.profileButton}`);
@@ -103,7 +80,6 @@ class KeyboardNavigation {
             }
             case 'Enter':
             case 'Space': {
-              if (e.target.closest(selectors.searchField)) return;
               e.stopPropagation();
               e.preventDefault();
               e.target.click();
