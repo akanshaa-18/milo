@@ -113,7 +113,7 @@ function checkLCPInFirstSection() {
   const result = { ...lcpInFirstSectionResult.value };
   const hasLcpInFirstSection = document.querySelector('.section')?.contains(lcp.element);
   if (hasLcpInFirstSection) {
-    result.description = 'The content does have an image or video (e.g. a marquee) as the first element of a page, which is good for performance.';
+    result.description = 'The content has an image or video (e.g. a marquee) as the first element of a page, which is good for performance.';
     result.icon = pass;
   } else {
     result.description = 'The content does not have an image or video (e.g. a marquee) as the first element of a page, which is bad for performance.';
