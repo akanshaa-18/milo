@@ -112,7 +112,7 @@ function checkForPersonalization() {
 function checkLCPInFirstSection() {
   const result = { ...lcpInFirstSectionResult.value };
   const hasLcpInFirstSection = document.querySelector('.section')?.contains(lcp.element);
-  if (!hasLcpInFirstSection) {
+  if (hasLcpInFirstSection) {
     result.description = 'The content does not have an image or video (e.g. a marquee) as the first element of a page, which is bad for performance.';
     result.icon = pass;
   } else {
