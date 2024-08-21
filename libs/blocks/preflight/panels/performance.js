@@ -99,11 +99,11 @@ function checkForPersonalization() {
 function checkLCPInFirstSection() {
   const result = { ...lcpInFirstSectionResult.value };
   const hasLcpInFirstSection = document.querySelector('.section')?.contains(lcp.element);
-  if (!hasLcpInFirstSection) {
-    result.description = 'LCP element is not within the first section.';
+  if (hasLcpInFirstSection) {
+    result.description = 'LCP element is within the first section.';
     result.icon = pass;
   } else {
-    result.description = 'LCP element is within the first section.';
+    result.description = 'LCP element is not within the first section.';
     result.icon = fail;
   }
   lcpInFirstSectionResult.value = result;
