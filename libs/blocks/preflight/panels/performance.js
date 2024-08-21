@@ -113,10 +113,10 @@ function checkLCPInFirstSection() {
   const result = { ...lcpInFirstSectionResult.value };
   const hasLcpInFirstSection = document.querySelector('.section')?.contains(lcp.element);
   if (hasLcpInFirstSection) {
-    result.description = 'The content does not have an image or video (e.g. a marquee) as the first element of a page, which is bad for performance.';
+    result.description = 'The content does have an image or video (e.g. a marquee) as the first element of a page, which is good for performance.';
     result.icon = pass;
   } else {
-    result.description = 'The content has an image or video (e.g. a marquee) as the first element of a page, which is good for performance.';
+    result.description = 'The content does not have an image or video (e.g. a marquee) as the first element of a page, which is bad for performance.';
     result.icon = fail;
   }
   lcpInFirstSectionResult.value = result;
@@ -243,7 +243,6 @@ export default function Panel() {
   <div class=seo-column>
     <${PerformanceItem} icon=${lcpInFirstSectionResult.value.icon} title=${lcpInFirstSectionResult.value.title} description=${lcpInFirstSectionResult.value.description} />
     <${PerformanceItem} icon=${videosWithoutPosterResult.value.icon} title=${videosWithoutPosterResult.value.title} description=${videosWithoutPosterResult.value.description} />
-    <${PerformanceItem} icon=${modalsResult.value.icon} title=${modalsResult.value.title} description=${modalsResult.value.description} />
     <${PerformanceItem} icon=${performanceResult.value.icon} title=${`${performanceResult.value.title} ${Math.round(lcp?.renderTime || 0)}ms`} description=${performanceResult.value.description} />
   </div>
   <div class=footer></div>
