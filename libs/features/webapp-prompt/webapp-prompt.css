@@ -27,6 +27,10 @@
     left: 0;
   }
 
+  .appPrompt:hover .appPrompt-progressWrapper .appPrompt-progress {
+    animation-play-state: paused;
+  }
+
   .appPrompt-icon {
     min-height: 32px;
   }
