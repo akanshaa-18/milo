@@ -60,6 +60,14 @@ describe('Utils', () => {
     expect(resp.json()).to.be.true;
   });
 
+  it('renders global navigation when header tag is present', async ()=> {
+    const bodyWithheader = await readFile({ path: './mocks/body-gnav.html' });
+    document.head.innerHTML = head;
+    document.body.innerHTML = bodyWithheader;
+    await utils.loadArea();
+    expect(document.querySelector('.global-navigation')).to.exist;
+  });
+
   describe('with body', () => {
     beforeEach(async () => {
       window.fetch = mockFetch({ payload: { data: '' } });
