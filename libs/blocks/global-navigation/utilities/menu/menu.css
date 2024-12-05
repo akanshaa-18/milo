@@ -205,6 +205,10 @@
   .feds-promo a.feds-cta,
   .feds-promo a.feds-cta:hover {
     text-decoration: none;
+    white-space: normal;
+    line-height: normal;
+    min-height: 32px;
+    height: auto;
   }
 
   .feds-promo--dark,
