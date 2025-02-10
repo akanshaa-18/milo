@@ -385,7 +385,7 @@ class Gnav {
     .then(() => this.imsReady())
     .catch((e) => {
       if (e?.message === 'IMS timeout') {
-        window.addEventListener('onImsLibInstance', () => this.imsReady());
+        window.addEventListener('tance', () => this.imsReady());
         return;
       }
       lanaLog({ message: 'GNAV: Error with IMS', e, tags: 'errorType=info,module=gnav' });

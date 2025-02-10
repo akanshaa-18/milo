@@ -226,6 +226,123 @@ const getMartechCookies = () => document.cookie.split(';')
   .map(([key, value]) => ({ key, value }));
 
 /**
+ * Determines whether a user is a "New" or "Repeat" visitor based on a cookie.
+ * If the user has visited the site within the last `d` days, they are considered "Repeat".
+ * Otherwise, they are considered "New".
+ *
+ * @param {number} [d=30] - Number of days until the cookie expires. Default is 30 days.
+ * @param {string} [cn='s_nr'] - Name of the cookie. Default is "s_nr".
+ * @param {string} [domain] - The domain on which to set the cookie.
+ * @returns {string} - Returns "New" or "Repeat" based on the user's visit history.
+ */
+function getNewRepeat(d = 30, cn = 's_nr', domain) {
+  const now = Date.now();
+  const timeInDays = d * (24 * 60 * 60 * 1000);
+  const expirationDate = new Date(now + timeInDays);
+
+  // Get the cookie value
+  const cval = getCookie(cn) || '';
+
+  // Set cookie attributes
+  const attributes = {
+    expires: expirationDate.toUTCString(),
+    path: '/',
+  };
+  if (domain) {
+    attributes.domain = domain;
+  }
+
+  // If the cookie doesn't exist, set it and return "New"
+  if (!cval) {
+    setCookie(cn, `${now}-New`, attributes);
+    return 'New';
+  }
+
+  // Split the cookie value into the timestamp and the status
+  const [timestamp, status] = cval.split('-');
+
+  // If the user's last activity was less than 30 minutes ago and they were "New",
+  // update the cookie and return "New"
+  if (now - parseInt(timestamp, 10) < 30 * 60 * 1000 && status === 'New') {
+    setCookie(cn, `${now}-New`, attributes);
+    return 'New';
+  }
+
+  // Otherwise, update the cookie to "Repeat" and return "Repeat"
+  setCookie(cn, `${now}-Repeat`, attributes);
+  return 'Repeat';
+}
+
+/**
+ * Determines the Creative Cloud entitlement based on the user profile.
+ *
+ * @param {Object} profile - The user profile object.
+ * @returns {string} The Creative Cloud entitlement.
+ */
+function getEntitlementCreativeCloud(profile) {
+  const serviceAccount = profile?.serviceAccounts?.find((sa) => sa.serviceCode === 'creative_cloud');
+  if (!serviceAccount) return 'notEntitled';
+  return serviceAccount.serviceLevel === 'CS_LVL_2' ? 'paid' : 'free';
+}
+
+/**
+ * Determines the Creative Cloud entitlement status based on the user profile.
+ *
+ * @param {Object} profile - The user profile object.
+ * @returns {string} The Creative Cloud entitlement status.
+ */
+function getEntitlementStatusCreativeCloud(profile) {
+  const serviceAccount = profile?.serviceAccounts?.find((sa) => sa.serviceCode === 'creative_cloud');
+  return serviceAccount?.serviceStatus || 'none';
+}
+
+/**
+ * Creates the profileInfo structure based on the user profile fetched from IMS.
+ *
+ * @param {Object} profile - The user profile object fetched from IMS.
+ * @param {string} returningStatus - The returning status of the user.
+ * @returns {Object} The profileInfo object.
+ */
+function createProfileInfo(profile, returningStatus) {
+  const adobeIMSUserProfile = {
+    account_type: profile?.account_type || 'unknown',
+    preferred_languages: profile?.preferred_languages || null,
+    countryCode: profile?.countryCode || 'unknown',
+    toua: profile?.toua || 'unknown',
+    email: sha256(profile?.email?.toLowerCase() || 'unknown'),
+    first_name: sha256(profile?.first_name?.toLowerCase() || 'unknown'),
+    last_name: sha256(profile?.last_name?.toLowerCase() || 'unknown'),
+    phoneNumber: sha256(profile?.phoneNumber?.replace('+', '') || 'unknown'),
+    roles: profile?.roles || [],
+    tags: profile?.tags || [],
+  };
+
+  return {
+    authState: 'authenticated', // Assuming the user is signed in
+    entitlementCreativeCloud: getEntitlementCreativeCloud(profile),
+    entitlementStatusCreativeCloud: getEntitlementStatusCreativeCloud(profile),
+    returningStatus: returningStatus || 'Repeat',
+    profileID: profile?.userId?.split('@')[0] || 'unknown',
+    authID: profile?.authId?.split('@')[0] || 'unknown',
+    fullProfileID: profile?.userId || 'unknown',
+    fullAuthID: profile?.authId || 'unknown',
+    adobeIMSUserProfile,
+  };
+}
+
+/**
+ * Retrieves the profile information for the current user.
+ *
+ * @returns {Promise<Object>} A promise that resolves to the profileInfo object.
+ */
+async function getProfileInfo() {
+  const profile = await window.adobeIMS.getProfile(); // Fetch profile from IMS
+  const returningStatus = _getNewRepeat(365, 's_nr', _getDomain()); // Get returning status
+
+  return createProfileInfo(profile, returningStatus);
+}
+
+/**
  * Creates the request payload for Adobe Analytics and Target.
  *
  * @param {Object} params - Parameters required to create the payload.
@@ -240,6 +357,14 @@ function createRequestPayload({ updatedContext, pageName, locale, env }) {
 
   const REPORT_SUITES_ID = env === 'prod' ? ['adbadobenonacdcprod'] : ['adbadobenonacdcqa'];
   const AT_PROPERTY_VAL = getTargetPropertyBasedOnPageRegion(env);
+
+  // Check if the user is logged in or logged out using serverTiming
+  const isLoggedIn = !!(serverTiming && serverTiming.sis !== '0');
+
+  // Prepare the primaryUser structure based on login state
+  const primaryUser = isLoggedIn
+    ? { primaryProfile: { profileInfo: getProfileInfo() } } // Fetch profileInfo if logged in
+    : { primaryProfile: { profileInfo: { authState: 'loggedOut', returningStatus: 'Repeat' } } }; // Default for logged out
 
   return {
     event: {
@@ -278,7 +403,8 @@ function createRequestPayload({ updatedContext, pageName, locale, env }) {
             page: { pageInfo: { language: locale.ietf } },
             diagnostic: { franklin: { implementation: 'milo' } },
             previousPage: { pageInfo: { pageName: prevPageName } },
-            primaryUser: { primaryProfile: { profileInfo: { authState: 'loggedOut', returningStatus: 'Repeat' } } },
+            primaryUser, // Insert the primaryUser structure here
+            // primaryUser: { primaryProfile: { profileInfo: { authState: 'loggedOut', returningStatus: 'Repeat' } } },
           },
         },
       },
