@@ -274,26 +274,164 @@ function getNewRepeat(d = 30, cn = 's_nr', domain) {
 }
 
 /**
- * Determines the Creative Cloud entitlement based on the user profile.
+ * Determines the highest-level domain on which cookies can be set.
+ * This function attempts to set a test cookie on progressively higher-level domains
+ * until it finds the highest domain where the cookie can be set.
+ *
+ * @returns {string} - The effective domain where cookies can be set,
+ * or an empty string if no valid domain is found.
+ */
+function getDomain() {
+  // Cache the effective domain to avoid recomputation
+  let effectiveDomain = '';
+
+  // If the effective domain is already determined, return it
+  if (effectiveDomain) {
+    return effectiveDomain;
+  }
+
+  // Split the hostname into parts (e.g., ["www", "example", "com"])
+  const parts = window.location.hostname.toLowerCase().split('.');
+  const domain = [];
+  let part = '';
+  let successfullySet = false;
+
+  // Start from the top-level domain (TLD) and work upwards
+  part = parts.pop(); // Remove the TLD (e.g., "com")
+  domain.unshift(part); // Add the TLD to the domain array
+
+  // Iterate through the remaining parts of the hostname
+  while (parts.length > 0) {
+    part = parts.pop(); // Remove the next part (e.g., "example")
+    domain.unshift(part); // Add it to the domain array
+
+    // Create a date 1 second in the future for the cookie expiration
+    const date = new Date();
+    date.setTime(date.getTime() + 1000);
+
+    try {
+      // Attempt to set a test cookie on the current domain
+      setCookie('sat_domain', 'A', {
+        expires: date,
+        domain: domain.join('.'), // Join the domain parts (e.g., "example.com")
+      });
+    } catch (err) {
+      // If setting the cookie fails, break out of the loop
+      break;
+    }
+
+    // Check if the cookie was successfully set
+    if (getCookie('sat_domain') === 'A') {
+      successfullySet = true;
+      effectiveDomain = domain.join('.'); // Cache the effective domain
+      break;
+    }
+  }
+
+  // Return the effective domain or an empty string if no valid domain was found
+  return successfullySet ? effectiveDomain : '';
+}
+
+const sha256 = function (b) {
+  function c(a, b) {
+    return (a >>> b) | (a << (32 - b));
+  }
+  for (
+    var d, e, f = Math.pow, g = f(2, 32), h = "length", i = "", j = [], k = 8 * b[h], l = sha256.h = sha256.h || [], m = sha256.k = sha256.k || [], n = m[h], o = {}, p = 2;
+    64 > n;
+    p++
+  ) {
+    if (!o[p]) {
+      for (d = 0; 313 > d; d += p) o[d] = p;
+      l[n] = f(p, 0.5) * g | 0;
+      m[n++] = f(p, 1 / 3) * g | 0;
+    }
+  }
+  for (b += "\x80"; b[h] % 64 - 56; ) b += "\x00";
+  for (d = 0; d < b[h]; d++) {
+    if (((e = b.charCodeAt(d)), e >> 8)) return;
+    j[d >> 2] |= e << ((3 - d) % 4) * 8;
+  }
+  for (j[j[h]] = k / g | 0, j[j[h]] = k, e = 0; e < j[h]; ) {
+    var q = j.slice(e, (e += 16)), r = l;
+    for (l = l.slice(0, 8), d = 0; 64 > d; d++) {
+      var s = q[d - 15],
+        t = q[d - 2],
+        u = l[0],
+        v = l[4],
+        w = l[7] + (c(v, 6) ^ c(v, 11) ^ c(v, 25)) + ((v & l[5]) ^ (~v & l[6])) + m[d] + (q[d] = 16 > d ? q[d] : (q[d - 16] + (c(s, 7) ^ c(s, 18) ^ (s >>> 3)) + q[d - 7] + (c(t, 17) ^ c(t, 19) ^ (t >>> 10))) | 0),
+        x = (c(u, 2) ^ c(u, 13) ^ c(u, 22)) + ((u & l[1]) ^ (u & l[2]) ^ (l[1] & l[2]));
+      l = [w + x | 0].concat(l);
+      l[4] = l[4] + w | 0;
+    }
+    for (d = 0; 8 > d; d++) l[d] = l[d] + r[d] | 0;
+  }
+  for (d = 0; 8 > d; d++) {
+    for (e = 3; e + 1; e--) {
+      var y = (l[d] >> (8 * e)) & 255;
+      i += (16 > y ? 0 : "") + y.toString(16);
+    }
+  }
+  return i;
+};
+
+
+/**
+ * Determines the Creative Cloud entitlement based on the user profile and scope.
  *
  * @param {Object} profile - The user profile object.
- * @returns {string} The Creative Cloud entitlement.
+ * @param {string} scope - The scope from adobeIMS.adobeIdData.
+ * @returns {string} The Creative Cloud entitlement ('paid', 'free', or 'notEntitled').
  */
 function getEntitlementCreativeCloud(profile) {
-  const serviceAccount = profile?.serviceAccounts?.find((sa) => sa.serviceCode === 'creative_cloud');
-  if (!serviceAccount) return 'notEntitled';
-  return serviceAccount.serviceLevel === 'CS_LVL_2' ? 'paid' : 'free';
+  const scope = window.adobeIMS.adobeIdData.scope;
+  if (
+    scope &&
+    scope.indexOf('creative_cloud') !== -1 &&
+    profile &&
+    profile.serviceAccounts
+  ) {
+    const serviceAccount = profile.serviceAccounts.find(
+      (sa) => sa.serviceCode === 'creative_cloud'
+    );
+
+    if (!serviceAccount) {
+      return 'notEntitled'; // No Creative Cloud service account found
+    }
+
+    // Check the service level
+    if (serviceAccount.serviceLevel === 'CS_LVL_2') {
+      return 'paid'; // Paid entitlement
+    } else if (serviceAccount.serviceLevel === 'CS_LVL_1') {
+      return 'free'; // Free entitlement
+    } else {
+      return 'notEntitled'; // Any other service level (e.g., CS_LVL_4)
+    }
+  }
+  return 'notEntitled'; // Default if conditions are not met
 }
 
 /**
- * Determines the Creative Cloud entitlement status based on the user profile.
+ * Determines the Creative Cloud entitlement status based on the user profile and scope.
  *
  * @param {Object} profile - The user profile object.
+ * @param {string} scope - The scope from adobeIMS.adobeIdData.
  * @returns {string} The Creative Cloud entitlement status.
  */
 function getEntitlementStatusCreativeCloud(profile) {
-  const serviceAccount = profile?.serviceAccounts?.find((sa) => sa.serviceCode === 'creative_cloud');
-  return serviceAccount?.serviceStatus || 'none';
+  const scope = window.adobeIMS.adobeIdData.scope;
+  if (
+    scope &&
+    scope.indexOf('creative_cloud') !== -1 &&
+    profile &&
+    profile.serviceAccounts
+  ) {
+    const serviceAccount = profile.serviceAccounts.find(
+      (sa) => sa.serviceCode === 'creative_cloud'
+    );
+    return serviceAccount?.serviceStatus || 'none';
+  }
+  return 'none';
 }
 
 /**
@@ -304,6 +442,7 @@ function getEntitlementStatusCreativeCloud(profile) {
  * @returns {Object} The profileInfo object.
  */
 function createProfileInfo(profile, returningStatus) {
+  const scope = window.adobeIMS.adobeIdData.scope;
   const adobeIMSUserProfile = {
     account_type: profile?.account_type || 'unknown',
     preferred_languages: profile?.preferred_languages || null,
@@ -337,7 +476,7 @@ function createProfileInfo(profile, returningStatus) {
  */
 async function getProfileInfo() {
   const profile = await window.adobeIMS.getProfile(); // Fetch profile from IMS
-  const returningStatus = _getNewRepeat(365, 's_nr', _getDomain()); // Get returning status
+  const returningStatus = getNewRepeat(365, 's_nr', getDomain()); // Get returning status
 
   return createProfileInfo(profile, returningStatus);
 }
@@ -352,17 +491,14 @@ async function getProfileInfo() {
  * @param {string} params.env - The environment (e.g., 'prod' for production).
  * @returns {Object} The request payload for Adobe Analytics and Target.
  */
-function createRequestPayload({ updatedContext, pageName, locale, env }) {
+function createRequestPayload({ updatedContext, pageName, locale, env, status }) {
   const prevPageName = getCookie('gpv');
 
   const REPORT_SUITES_ID = env === 'prod' ? ['adbadobenonacdcprod'] : ['adbadobenonacdcqa'];
   const AT_PROPERTY_VAL = getTargetPropertyBasedOnPageRegion(env);
 
-  // Check if the user is logged in or logged out using serverTiming
-  const isLoggedIn = !!(serverTiming && serverTiming.sis !== '0');
-
   // Prepare the primaryUser structure based on login state
-  const primaryUser = isLoggedIn
+  const primaryUser = status
     ? { primaryProfile: { profileInfo: getProfileInfo() } } // Fetch profileInfo if logged in
     : { primaryProfile: { profileInfo: { authState: 'loggedOut', returningStatus: 'Repeat' } } }; // Default for logged out
 
@@ -404,7 +540,9 @@ function createRequestPayload({ updatedContext, pageName, locale, env }) {
             diagnostic: { franklin: { implementation: 'milo' } },
             previousPage: { pageInfo: { pageName: prevPageName } },
             primaryUser, // Insert the primaryUser structure here
-            // primaryUser: { primaryProfile: { profileInfo: { authState: 'loggedOut', returningStatus: 'Repeat' } } },
+            
+            }
+            
           },
         },
       },
@@ -503,7 +641,10 @@ function getUrl() {
  * @returns {Promise<Object>} A promise that resolves to the
  * personalization propositions fetched from Adobe Target.
  */
-export const loadAnalyticsAndInteractionData = async ({ locale, env, calculatedTimeout }) => {
+export const loadAnalyticsAndInteractionData = async ({ locale, env, calculatedTimeout, status }) => {
+  if (status)
+   loadIms();
+
   const value = getCookie('kndctr_9E1005A551ED61CA0A490D45_AdobeOrg_consent');
 
   if (value === 'general=out') {
@@ -543,6 +684,7 @@ export const loadAnalyticsAndInteractionData = async ({ locale, env, calculatedT
     pageName,
     locale,
     env,
+    status,
   });
 
   try {
