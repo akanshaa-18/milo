@@ -5,6 +5,8 @@
 import { createTag, getConfig, loadLink, loadScript, localizeLink } from '../../utils/utils.js';
 import { getFederatedUrl } from '../../utils/federated.js';
 
+console.log('loaded correctly');
+
 /* c8 ignore start */
 const PHONE_SIZE = window.screen.width < 550 || window.screen.height < 550;
 const safariIpad = navigator.userAgent.includes('Macintosh') && navigator.maxTouchPoints > 1;
@@ -105,7 +107,7 @@ const isInLcpSection = (el) => {
   const lcpSection = document.querySelector('body > main > div');
   return lcpSection === el || lcpSection?.contains(el);
 };
-
+console.log('exported everything 2');
 const GLOBAL_CMDS = [
   'insertscript',
   'replacepage',
@@ -205,7 +207,7 @@ export const createContent = (el, { content, manifestId, targetManifestId, actio
   if (el?.parentElement.nodeName !== 'MAIN') return frag;
   return createTag('div', undefined, frag);
 };
-
+console.log('exported everything 3');
 const COMMANDS = {
   [COMMANDS_KEYS.remove]: (el, { content, manifestId }) => {
     if (content === 'false') return;
@@ -311,6 +313,7 @@ export async function replaceInner(path, element) {
   return true;
 }
 /* c8 ignore stop */
+console.log('exported everything 4');
 
 const setMetadata = (metadata) => {
   const { selector, val } = metadata;
@@ -761,6 +764,94 @@ export const getEntitlements = async (data) => {
     return ents || [];
   });
 };
+// const ALLOY_SEND_EVENT = 'alloy_sendEvent';
+// const ALLOY_SEND_EVENT_ERROR = 'alloy_sendEvent_error';
+// const ENTITLEMENT_TIMEOUT = 5000;
+
+// // eslint-disable-next-line max-len
+// const waitForEventOrTimeout = (eventName, timeoutLocal, returnValIfTimeout) => new Promise((resolve) => {
+//   const listener = (event) => {
+//     // eslint-disable-next-line no-use-before-define
+//     clearTimeout(timer);
+//     resolve(event.detail);
+//   };
+
+//   const errorListener = () => {
+//     // eslint-disable-next-line no-use-before-define
+//     clearTimeout(timer);
+//     resolve({ error: true });
+//   };
+
+//   const timer = setTimeout(() => {
+//     window.removeEventListener(eventName, listener);
+//     if (returnValIfTimeout !== undefined) {
+//       resolve(returnValIfTimeout);
+//     } else {
+//       resolve({ timeout: true });
+//     }
+//   }, timeoutLocal);
+
+//   window.addEventListener(eventName, listener, { once: true });
+//   window.addEventListener(ALLOY_SEND_EVENT_ERROR, errorListener, { once: true });
+// });
+
+// const setupEntitlementCallback = () => {
+//   const setEntitlements = async (destinations) => getEntitlements(destinations);
+
+//   const getEntitlements6 = (resolve) => {
+//     const handleEntitlements = (detail) => {
+//       if (detail?.result?.destinations?.length) {
+//         resolve(setEntitlements(detail.result.destinations));
+//       } else {
+//         resolve([]);
+//       }
+//     };
+
+//     waitForEventOrTimeout(ALLOY_SEND_EVENT, ENTITLEMENT_TIMEOUT, [])
+//       .then(handleEntitlements)
+//       .catch(() => resolve([]));
+//   };
+
+//   const { miloLibs, codeRoot, entitlements: resolveEnt } = getConfig();
+//   getEntitlements6(resolveEnt);
+// };
+
+// setupEntitlementCallback();
+
+const ALLOY_SEND_EVENT = 'alloy_sendEvent';
+const ENTITLEMENT_TIMEOUT = 3000;
+
+const waitForEventOrTimeout = (eventName, timeout, defaultValue) => new Promise((resolve) => {
+  const listener = (event) => {
+    clearTimeout(timer);
+    resolve(event.detail);
+  };
+
+  const timer = setTimeout(() => {
+    window.removeEventListener(eventName, listener);
+    resolve(defaultValue);
+  }, timeout);
+
+  window.addEventListener(eventName, listener, { once: true });
+});
+
+const setupEntitlementCallback = () => {
+  const resolveEntitlements = getConfig().entitlements;
+
+  const handleEntitlements = async (detail) => {
+    if (detail?.result?.destinations?.length) {
+      return getEntitlements(detail.result.destinations);
+    }
+    return [];
+  };
+
+  waitForEventOrTimeout(ALLOY_SEND_EVENT, ENTITLEMENT_TIMEOUT, [])
+    .then(handleEntitlements)
+    .then(resolveEntitlements)
+    .catch(() => resolveEntitlements([]));
+};
+
+setupEntitlementCallback();
 
 async function getPersonalizationVariant(
   manifestPath,
@@ -775,16 +866,30 @@ async function getPersonalizationVariant(
   const variantInfo = buildVariantInfo(variantNames);
 
   const entitlementKeys = Object.values(await getEntitlementMap());
-  const hasEntitlementTag = entitlementKeys.some((tag) => variantInfo.allNames.includes(tag));
+  console.log('has entitlement Keys', entitlementKeys);
 
+  const hasEntitlementTag = entitlementKeys.some((tag) => variantInfo.allNames.includes(tag));
+  console.log('has entitlement', hasEntitlementTag);
+
+  // let userEntitlements = [];
+  // if (hasEntitlementTag) {
+  //   if (config?.mep?.enablePersV2) {
+  //     console.log('abc test');
+  //     userEntitlements = [];
+  //   } else {
+  //     userEntitlements = await config.entitlements();
+  //     console.log('User entitlements', userEntitlements);
+  //   }
+  // }
+  console.log('lets get config', config);
   let userEntitlements = [];
   if (hasEntitlementTag) {
-    if (config?.mep?.enablePersV2) {
-      userEntitlements = [];
-    } else {
-      userEntitlements = await config.entitlements();
-    }
+    console.log('entitlements1', userEntitlements);
+    console.log('config.entitlements', config.entitlements());
+    userEntitlements = await config.entitlements();
+    console.log('entitlements2', userEntitlements);
   }
+  console.log('entitlements', userEntitlements);
 
   const hasMatch = (name) => {
     if (!name) return true;
@@ -905,12 +1010,13 @@ export async function getManifestConfig(info = {}, variantOverride = false) {
   }
 
   manifestConfig.manifestPath = normalizePath(manifestPath);
+  console.log('getvariant');
   manifestConfig.selectedVariantName = await getPersonalizationVariant(
     manifestConfig.manifestPath,
     manifestConfig.variantNames,
     variantLabel,
   );
-
+  console.log('outside variant');
   manifestConfig.placeholderData = manifestPlaceholders || data?.placeholders?.data;
   manifestConfig.name = name;
   manifestConfig.manifest = manifestPath;
@@ -918,6 +1024,7 @@ export async function getManifestConfig(info = {}, variantOverride = false) {
   manifestConfig.disabled = disabled;
   manifestConfig.event = event;
   if (source?.length) manifestConfig.source = source;
+  console.log('is this function correct');
   return manifestConfig;
 }
 
@@ -1052,14 +1159,22 @@ export function parseNestedPlaceholders({ placeholders }) {
 }
 
 export async function applyPers({ manifests }) {
+  console.log('entered this function hurray');
   if (!manifests?.length) return;
   let experiments = manifests;
+  console.log('not returned till now huff');
   const config = getConfig();
+  console.log('checking if config is present', config);
+  console.log('checking if exp.length', experiments.length);
   for (let i = 0; i < experiments.length; i += 1) {
+    console.log('entered the for loop');
+    console.log('checking if experiments[i]', experiments[i]);
+    console.log('checking if config.mep?.variantOverride', config.mep?.variantOverride);
     experiments[i] = await getManifestConfig(
       experiments[i],
       config.mep?.variantOverride,
     );
+    console.log('i am out of this now');
   }
 
   experiments = cleanAndSortManifestList(experiments);
@@ -1290,6 +1405,7 @@ export async function init(enablements = {}) {
       enablePersV2,
       hybridPersEnabled,
     };
+    console.log('exported everything', config.mep);
     manifests = manifests.concat(await combineMepSources(pzn, promo, mepParam));
     manifests?.forEach((manifest) => {
       if (manifest.disabled) return;
@@ -1297,25 +1413,37 @@ export async function init(enablements = {}) {
       loadLink(normalizedURL, { as: 'fetch', crossorigin: 'anonymous', rel: 'preload' });
     });
     if (pzn) loadLink(getXLGListURL(config), { as: 'fetch', crossorigin: 'anonymous', rel: 'preload' });
+    console.log('everything done in else block');
   }
 
   if (enablePersV2 && target === true) {
     manifests = manifests.concat(await handleMartechTargetInteraction(
       { config, targetInteractionPromise, calculatedTimeout },
     ));
+    console.log('exported everything done enablepersv2', manifests);
   } else {
     if (target === true) manifests = manifests.concat(await callMartech(config));
     if (target === 'postlcp') callMartech(config);
   }
   if (postLCP) {
+    console.log('entered postlcp block');
     if (!config.mep.targetManifests) await awaitMartech();
     manifests = config.mep.targetManifests;
   }
   try {
-    if (manifests?.length) await applyPers({ manifests });
-    if (config.mep?.preview) await import('./preview.js').then(({ saveToMmm }) => saveToMmm());
+    console.log('I am in try');
+    if (manifests?.length) {
+      console.log('i am in first if block');
+      await applyPers({ manifests });
+    }
+    if (config.mep?.preview) {
+      console.log('i am in second if block');
+      await import('./preview.js').then(({ saveToMmm }) => saveToMmm());
+    }
   } catch (e) {
+    console.log('i am in catch');
     log(`MEP Error: ${e.toString()}`);
     window.lana?.log(`MEP Error: ${e.toString()}`);
   }
+  console.log('exported everything final done');
 }

@@ -2,6 +2,7 @@
 /* eslint-disable camelcase */
 import { getConfig } from '../../../utils/utils.js';
 
+console.log('i am inside getuserentitlements');
 const API_WAIT_TIMEOUT = 10000;
 const FORMAT_RAW = 'raw';
 let entitlements = {};

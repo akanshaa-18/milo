@@ -354,6 +354,7 @@ export async function getDownloadAction(
   const loggedIn = await imsSignedInPromise;
   if (!loggedIn) return undefined;
   const entitlements = await fetchEntitlements();
+  console.log('i am inside merch.js');
   if (!entitlements?.length) return undefined;
   const checkoutLinkConfig = await getCheckoutLinkConfig(
     offerFamily,
@@ -388,6 +389,7 @@ export async function getUpgradeAction(
   const loggedIn = await imsSignedInPromise;
   if (!loggedIn) return undefined;
   const entitlements = await fetchEntitlements();
+  console.log('i am inside merch 2');
   if (upgradeOffer === null) {
     upgradeOffer = undefined;
     // will enter only once

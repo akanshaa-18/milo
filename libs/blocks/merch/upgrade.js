@@ -152,5 +152,6 @@ export default async function handleUpgradeOffer(
     const text = await replaceKey('upgrade-now', getConfig());
     return { text, className: 'upgrade', url: upgradeUrl, handler: showModal };
   }
+  console.log('i am inside upgrade.js');
   return undefined;
 }

@@ -202,9 +202,7 @@ export function getMetadata(name, doc = document) {
 }
 
 const handleEntitlements = (() => {
-  console.log('test1');
   const { martech } = Object.fromEntries(PAGE_URL.searchParams);
-  console.log(martech);
   if (martech === 'off') return () => { };
   let entResolve;
   const entPromise = new Promise((resolve) => {
@@ -215,7 +213,6 @@ const handleEntitlements = (() => {
     if (resolveVal !== undefined) {
       entResolve(resolveVal);
     }
-    console.log('show me', entPromise);
     return entPromise;
   };
 })();
@@ -256,10 +253,7 @@ export const [setConfig, updateConfig, getConfig] = (() => {
       config.locale.contentRoot = `${origin}${config.locale.prefix}${config.contentRoot ?? ''}`;
       config.useDotHtml = !PAGE_URL.origin.includes(`.${SLD}.`)
         && (conf.useDotHtml ?? PAGE_URL.pathname.endsWith('.html'));
-      console.log('setting entitlements');
       config.entitlements = handleEntitlements;
-      const testing = config.entitlements;
-      console.log('test reached config.entitlement', testing);
       config.consumerEntitlements = conf.entitlements || [];
       setupMiloObj(config);
       return config;
@@ -1026,10 +1020,8 @@ export async function loadIms() {
     const {
       locale, imsClientId, imsScope, env, base, adobeid, imsTimeout,
     } = getConfig();
-    console.log('i think ims is loaded');
     if (!imsClientId) {
       reject(new Error('Missing IMS Client ID'));
-      console.log('Missing IMS id???');
       return;
     }
     const [unavMeta, ahomeMeta] = [getMetadata('universal-nav')?.trim(), getMetadata('adobe-home-redirect')];
@@ -1051,32 +1043,21 @@ export async function loadIms() {
       onError: reject,
       ...adobeid,
     };
-    console.log('window object is set');
     const path = PAGE_URL.searchParams.get('useAlternateImsDomain')
       ? 'https://auth.services.adobe.com/imslib/imslib.min.js'
       : `${base}/deps/imslib.min.js`;
     loadScript(path);
-    console.log('lets check loadscript', loadScript(path));
   }).then(() => {
-    console.log('i have reached then');
-    const letsseestatus = !window.adobeIMS?.isSignedInUser();
-    console.log('lets see status', letsseestatus);
     if (getMepEnablement('xlg') === 'loggedout') {
       /* c8 ignore next */
-      console.log('I feel like i am logged out');
       getConfig().entitlements();
-      console.log('I feel like i am logged out');
     } else if (!window.adobeIMS?.isSignedInUser()) {
-      console.log('setting entitlement');
-    // } else {
       getConfig().entitlements([]);
     }
   }).catch((e) => {
-    console.log('setting entitlement');
     getConfig().entitlements([]);
     throw e;
   });
-  console.log('ims function is ended here');
 
   return imsLoaded;
 }
@@ -1103,7 +1084,6 @@ export async function loadMartech({
   const { default: initMartech } = await import('../martech/martech.js');
   await initMartech({ persEnabled, persManifests, postLCP });
   isMartechLoaded = true;
-  console.log('martech loaded', isMartechLoaded);
 
   return true;
 }
@@ -1118,7 +1098,7 @@ function isSignedOut() {
     (acc, { name, description }) => ({ ...acc, [name]: description }),
     {},
   );
-  console.log('serverTiming 47:', serverTiming);
+  console.log('serverTiming:', serverTiming);
 
   return !Object.keys(serverTiming || {}).length || serverTiming?.sis === '0';
 }
@@ -1130,9 +1110,8 @@ function isSignedOut() {
  */
 export function enablePersonalizationV2() {
   const enablePersV2 = getMepEnablement('personalization-v2');
-  // return !!enablePersV2 && !isSignedOut();
-  // return !!enablePersV2 && isSignedOut();
-  return !!enablePersV2;
+  return !!enablePersV2 && isSignedOut();
+  // return !!enablePersV2;
 }
 
 async function checkForPageMods() {
@@ -1154,39 +1133,19 @@ async function checkForPageMods() {
     || mepHighlight || mepButton || mepParam === '' || xlg)) return;
 
   const enablePersV2 = enablePersonalizationV2();
-  console.log('checking for enablepersv2', enablePersV2);
   const hybridPersEnabled = getMepEnablement('hybrid-pers');
-  console.log('checking for hybridpers enabled', hybridPersEnabled);
+  // const userStatus = isSignedOut();
+  // console.log('user St', userStatus);
 
-  // if ((target || xlg) && enablePersV2 && (isSignedOut() || !!getMepEnablement('signed-in-exp'))) {
-  if ((target || xlg) && enablePersV2) {
-    // if ((target || xlg) && enablePersV2) {
-    console.log('initialized personalization functions maybe002');
-    // loadMartech();
-
-    console.log('initialized personalization functions maybe1');
+  if ((target || xlg) && enablePersV2 && (isSignedOut() || !!getMepEnablement('signed-in-exp'))) {
+  // if ((target || xlg) && enablePersV2) {
     const params = new URL(window.location.href).searchParams;
     calculatedTimeout = parseInt(params.get('target-timeout'), 10)
       || parseInt(getMetadata('target-timeout'), 10)
       || TARGET_TIMEOUT_MS;
 
-    // const ims = async () => (window.adobeIMS?.initialized ? this.imsReady() : loadIms()
-    //   .then(() => this.imsReady())
-    //   .catch((e) => {
-    //     if (e?.message === 'IMS timeout') {
-    //       window.addEventListener('onImsLibInstance', () => this.imsReady());
-    //     }
-    //   }));
-
-    // console.log('ims', ims);
-
     const userStatus = isSignedOut();
-    console.log('user St', userStatus);
-    // if (userStatus) await loadIms();
-    // const userInitial = window.adobeIMS?.initialized();
-    // console.log('user initial', userInitial);
-    // const userStatus2 = window.adobeIMS?.isSignedInUser();
-    // console.log('userStatus2', userStatus2);
+    // console.log('user St', userStatus);
 
     const { locale } = getConfig();
     targetInteractionPromise = (async () => {
@@ -1199,7 +1158,6 @@ async function checkForPageMods() {
       performance.mark('interaction-end');
       performance.measure('total-time', 'interaction-start', 'interaction-end');
       const respTime = performance.getEntriesByName('total-time')[0];
-      console.log('i am okay in this function');
 
       return { targetInteractionData: data, respTime, respStartTime: now };
     })();
@@ -1209,13 +1167,11 @@ async function checkForPageMods() {
       .then(() => {
         /* c8 ignore next */
         if (window.adobeIMS?.isSignedInUser() && !isMartechLoaded) loadMartech();
-        console.log('martech loaded it seems');
       })
       .catch((e) => { console.log('Unable to load IMS:', e); });
   }
 
   const { init } = await import('../features/personalization/personalization.js');
-  console.log('initialized personalization');
   await init({
     mepParam,
     mepHighlight,
@@ -1228,9 +1184,7 @@ async function checkForPageMods() {
     enablePersV2,
     hybridPersEnabled,
   });
-  console.log('initialized personalization functions maybe2');
 }
-console.log('initialized personalization functions maybe3');
 
 async function loadPostLCP(config) {
   const { default: loadFavIcon } = await import('./favicon.js');

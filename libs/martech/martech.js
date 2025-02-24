@@ -152,6 +152,7 @@ const loadMartechFiles = async (config) => {
       loadIms()
         .then(() => {
           if (window.adobeIMS.isSignedInUser()) setupEntitlementCallback();
+          console.log('entered martech then');
         })
         .catch(() => { });
     }

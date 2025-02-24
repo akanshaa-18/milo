@@ -1,5 +1,5 @@
 /* eslint-disable no-underscore-dangle */
-import { loadArea, loadIms } from '../utils/utils.js';
+import { loadIms } from '../utils/utils.js';
 
 const AMCV_COOKIE = 'AMCV_9E1005A551ED61CA0A490D45@AdobeOrg';
 const KNDCTR_COOKIE_KEYS = [
@@ -190,7 +190,11 @@ function getNewRepeat(d, cn, domain) {
   const now = Date.now();
   const timeInDays = d * (24 * 60 * 60 * 1000);
   const expirationDate = new Date(now + timeInDays);
+
+  // Get the cookie value
   const cval = getCookie(cn) || '';
+
+  // Set cookie attributes
   const attributes = {
     expires: expirationDate.toUTCString(),
     path: '/',
@@ -198,60 +202,86 @@ function getNewRepeat(d, cn, domain) {
   if (domain) {
     attributes.domain = domain;
   }
+
+  // If the cookie doesn't exist, set it and return "New"
   if (!cval) {
     setCookie(cn, `${now}-New`, attributes);
     return 'New';
   }
+
+  // Split the cookie value into the timestamp and the status
   const [timestamp, status] = cval.split('-');
+
+  // If the user's last activity was less than 30 minutes ago and they were "New",
+  // update the cookie and return "New"
   if (now - parseInt(timestamp, 10) < 30 * 60 * 1000 && status === 'New') {
     setCookie(cn, `${now}-New`, attributes);
     return 'New';
   }
+
+  // Otherwise, update the cookie to "Repeat" and return "Repeat"
   setCookie(cn, `${now}-Repeat`, attributes);
   return 'Repeat';
 }
 
+/**
+ * Determines the highest-level domain on which cookies can be set.
+ * This function attempts to set a test cookie on progressively higher-level domains
+ * until it finds the highest domain where the cookie can be set.
+ *
+ * @returns {string} - The effective domain where cookies can be set,
+ * or an empty string if no valid domain is found.
+ */
 function getDomain() {
+  // Cache the effective domain to avoid recomputation
   let effectiveDomain = '';
+
+  // If the effective domain is already determined, return it
   if (effectiveDomain) {
     return effectiveDomain;
   }
+
+  // Split the hostname into parts (e.g., ["www", "example", "com"])
   const parts = window.location.hostname.toLowerCase().split('.');
   const domain = [];
   let part = '';
   let successfullySet = false;
-  part = parts.pop();
-  domain.unshift(part);
+
+  // Start from the top-level domain (TLD) and work upwards
+  part = parts.pop(); // Remove the TLD (e.g., "com")
+  domain.unshift(part); // Add the TLD to the domain array
+
+  // Iterate through the remaining parts of the hostname
   while (parts.length > 0) {
-    part = parts.pop();
-    domain.unshift(part);
+    part = parts.pop(); // Remove the next part (e.g., "example")
+    domain.unshift(part); // Add it to the domain array
+
+    // Create a date 1 second in the future for the cookie expiration
     const date = new Date();
     date.setTime(date.getTime() + 1000);
 
     try {
+      // Attempt to set a test cookie on the current domain
       setCookie('sat_domain', 'A', {
         expires: date,
-        domain: domain.join('.'),
+        domain: domain.join('.'), // Join the domain parts (e.g., "example.com")
       });
     } catch (err) {
+      // If setting the cookie fails, break out of the loop
       break;
     }
+
+    // Check if the cookie was successfully set
     if (getCookie('sat_domain') === 'A') {
       successfullySet = true;
-      effectiveDomain = domain.join('.');
+      effectiveDomain = domain.join('.'); // Cache the effective domain
       break;
     }
   }
+
+  // Return the effective domain or an empty string if no valid domain was found
   return successfullySet ? effectiveDomain : '';
 }
-
-// export async function sha256(message) {
-//   const msgUint8 = new TextEncoder().encode(message);
-//   const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
-//   const hashArray = Array.from(new Uint8Array(hashBuffer));
-//   const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-//   return hashHex;
-// }
 
 const sha256 = function (b) {
   function c(a, b) {
@@ -297,6 +327,13 @@ const sha256 = function (b) {
   return i;
 };
 
+/**
+ * Determines the Creative Cloud entitlement based on the user profile and scope.
+ *
+ * @param {Object} profile - The user profile object.
+ * @param {string} scope - The scope from adobeIMS.adobeIdData.
+ * @returns {string} The Creative Cloud entitlement ('paid', 'free', or 'notEntitled').
+ */
 function getEntitlementCreativeCloud(profile) {
   const { scope } = window.adobeIMS.adobeIdData;
   if (
@@ -310,21 +347,30 @@ function getEntitlementCreativeCloud(profile) {
     );
 
     if (!serviceAccount) {
-      return 'notEntitled';
+      return 'notEntitled'; // No Creative Cloud service account found
     }
 
+    // Check the service level
     if (serviceAccount.serviceLevel === 'CS_LVL_2') {
-      return 'paid';
+      return 'paid'; // Paid entitlement
     } if (serviceAccount.serviceLevel === 'CS_LVL_1') {
-      return 'free';
+      return 'free'; // Free entitlement
     }
-    return 'notEntitled';
+    return 'notEntitled'; // Any other service level (e.g., CS_LVL_4)
   }
-  return 'notEntitled';
+  return 'notEntitled'; // Default if conditions are not met
 }
 
+/**
+ * Determines the Creative Cloud entitlement status based on the user profile and scope.
+ *
+ * @param {Object} profile - The user profile object.
+ * @param {string} scope - The scope from adobeIMS.adobeIdData.
+ * @returns {string} The Creative Cloud entitlement status.
+ */
 function getEntitlementStatusCreativeCloud(profile) {
   const { scope } = window.adobeIMS.adobeIdData;
+  console.log('Checking scope', scope);
   if (
     scope
     && scope.indexOf('creative_cloud') !== -1
@@ -339,6 +385,13 @@ function getEntitlementStatusCreativeCloud(profile) {
   return 'none';
 }
 
+/**
+ * Creates the profileInfo structure based on the user profile fetched from IMS.
+ *
+ * @param {Object} profile - The user profile object fetched from IMS.
+ * @param {string} returningStatus - The returning status of the user.
+ * @returns {Object} The profileInfo object.
+ */
 async function createProfileInfo(profile, returningStatus) {
   console.log(profile);
   const adobeIMSUserProfile = {
@@ -356,7 +409,7 @@ async function createProfileInfo(profile, returningStatus) {
   console.log(adobeIMSUserProfile);
 
   return {
-    authState: 'authenticated',
+    authState: 'authenticated', // Assuming the user is signed in
     entitlementCreativeCloud: await getEntitlementCreativeCloud(profile),
     entitlementStatusCreativeCloud: await getEntitlementStatusCreativeCloud(profile),
     returningStatus: returningStatus || 'Repeat',
@@ -370,8 +423,8 @@ async function createProfileInfo(profile, returningStatus) {
 
 async function getProfileInfo() {
   const profile = await window.adobeIMS.getProfile();
-  console.log('hello profile', profile);
-  const returningStatus = getVisitorStatus(365, 's_nr', getDomain());
+  console.log('hello profile', profile); // Fetch profile from IMS
+  const returningStatus = getNewRepeat(365, 's_nr', getDomain()); // Get returning status
   console.log(returningStatus);
   return createProfileInfo(profile, returningStatus);
 }
@@ -379,10 +432,7 @@ async function getProfileInfo() {
 async function createRequestPayload({
   updatedContext, pageName, locale, env, hitType, userStatus,
 }) {
-  // console.log('test us', userStatus);
-  // if (userStatus) await loadIms();
-  // if (userStatus) loadIms();
-
+  console.log('test us', userStatus);
   const prevPageName = getCookie('gpv');
   const isCollectCall = hitType === 'propositionDisplay';
   const isPageViewCall = hitType === 'pageView';
@@ -393,8 +443,8 @@ async function createRequestPayload({
   );
 
   const primaryUser = userStatus
-    ? { primaryProfile: { profileInfo: await getProfileInfo() } }
-    : { primaryProfile: { profileInfo: { authState: 'loggedOut', returningStatus: getVisitorStatus({}) } } };
+    ? { primaryProfile: { profileInfo: await getProfileInfo() } } // Fetch profileInfo if logged in
+    : { primaryProfile: { profileInfo: { authState: 'loggedOut', returningStatus: getVisitorStatus({}) } } }; // Default for logged out
 
   console.log('primaryuserInfo trial', primaryUser);
 
@@ -694,12 +744,7 @@ function sendPropositionDisplayRequest(filteredPayload, env, requestPayload) {
 export const loadAnalyticsAndInteractionData = async (
   { locale, env, calculatedTimeout, hybridPersEnabled, userStatus },
 ) => {
-  // if (userStatus === window.adobeIMS?.isSignedInUser()) {
-  //   loadIms();
-  // }
-  // if (userStatus) await loadIms();
   if (userStatus) await loadIms();
-  // console.log('helpers IMS loading', loadIms());
 
   const value = getCookie('kndctr_9E1005A551ED61CA0A490D45_AdobeOrg_consent');
 
@@ -794,7 +839,6 @@ export const loadAnalyticsAndInteractionData = async (
       console.log(err);
     }
     setGpvCookie(pageName);
-    // console.log('helpers IMS loading', loadIms());
     return {};
   }
 };
