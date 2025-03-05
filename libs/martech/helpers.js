@@ -146,7 +146,7 @@ function getOrGenerateUserId() {
     ECID: [{
       id: amcvCookieValue.match(/MCMID\|([^|]+)/)?.[1],
       authenticatedState: 'ambiguous',
-      primary: true,
+      primary: true,  
     }],
   };
 }
@@ -253,7 +253,8 @@ function getDomain() {
 //   return hashHex;
 // }
 
-const sha256 = function (b) {
+const 
+ = function (b) {
   function c(a, b) {
     return (a >>> b) | (a << (32 - b));
   }
@@ -412,7 +413,7 @@ async function createRequestPayload({
     xdm: {
       ...updatedContext,
       identityMap: getOrGenerateUserId(),
-      web: {
+      web: { 
         webPageDetails,
         webInteraction: isPageViewCall || isCollectCall ? undefined : {
           name: 'Martech-API',
