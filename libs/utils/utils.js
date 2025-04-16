@@ -1318,6 +1318,11 @@ async function checkForPageMods() {
       || TARGET_TIMEOUT_MS;
 
     const { locale } = getConfig();
+    const { miloLibs, codeRoot } = getConfig();
+    loadLink(
+      `${miloLibs || codeRoot}/martech/helpers.js`,
+      { as: 'script', rel: 'preload' },
+    );
     targetInteractionPromise = (async () => {
       const { loadAnalyticsAndInteractionData } = await import('../martech/helpers.js');
       const now = performance.now();
