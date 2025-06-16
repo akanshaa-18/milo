@@ -1709,11 +1709,10 @@ async function processSection(section, config, isDoc, lcpSectionId) {
 export async function loadArea(area = document) {
   const isDoc = area === document;
   if (isDoc) {
+    if (document.getElementById('page-load-ok-milo')) return;
     if (!edgePers) {
       await checkForPageMods();
     }
-    if (document.getElementById('page-load-ok-milo')) return;
-    await checkForPageMods();
     appendHtmlToCanonicalUrl();
     appendSuffixToTitles();
   }
