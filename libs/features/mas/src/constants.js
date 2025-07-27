@@ -82,6 +82,10 @@ export const EVENT_MERCH_SEARCH_CHANGE = 'merch-search:change';
 
 export const EVENT_MERCH_CARD_COLLECTION_SORT = 'merch-card-collection:sort';
 
+export const EVENT_MERCH_CARD_COLLECTION_LITERALS_CHANGED = 'merch-card-collection:literals-changed';
+
+export const EVENT_MERCH_CARD_COLLECTION_SIDENAV_ATTACHED = 'merch-card-collection:sidenav-attached';
+
 export const EVENT_MERCH_CARD_COLLECTION_SHOWMORE =
     'merch-card-collection:showmore';
 
@@ -127,8 +131,6 @@ export const Landscape = {
 export const HEADER_X_REQUEST_ID = 'X-Request-Id';
 
 export const CheckoutWorkflowStep = Object.freeze({
-    CHECKOUT: 'checkout',
-    CHECKOUT_EMAIL: 'checkout/email',
     SEGMENTATION: 'segmentation',
     BUNDLE: 'bundle',
     COMMITMENT: 'commitment',
@@ -139,7 +141,7 @@ export const CheckoutWorkflowStep = Object.freeze({
     CHANGE_PLAN_TEAM_PAYMENT: 'change-plan/team-upgrade/payment',
 });
 
-export const CheckoutWorkflow = Object.freeze({ V2: 'UCv2', V3: 'UCv3' });
+export const CheckoutWorkflow = 'UCv3';
 
 export const Env = Object.freeze({
     STAGE: 'STAGE',
@@ -164,3 +166,10 @@ export const TEMPLATE_PRICE = 'price';
 export const TEMPLATE_PRICE_STRIKETHROUGH = 'price-strikethrough';
 export const TEMPLATE_PRICE_ANNUAL = 'annual';
 export const TEMPLATE_PRICE_LEGAL = 'legal';
+
+export const FF_DEFAULTS = 'mas-ff-defaults';
+
+export const SORT_ORDER = {
+    alphabetical: 'alphabetical',
+    authored: 'authored',
+};

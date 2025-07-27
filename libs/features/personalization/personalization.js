@@ -9,6 +9,7 @@ import {
   loadScript,
   localizeLink,
   getFederatedUrl,
+  isSignedOut,
 } from '../../utils/utils.js';
 
 /* c8 ignore start */
@@ -32,8 +33,8 @@ export const PERSONALIZATION_TAGS = {
   phone: () => PERSONALIZATION_TAGS['mobile-device']() && PHONE_SIZE,
   tablet: () => PERSONALIZATION_TAGS['mobile-device']() && !PHONE_SIZE,
   desktop: () => !PERSONALIZATION_TAGS['mobile-device'](),
-  loggedout: () => !window.adobeIMS?.isSignedInUser(),
-  loggedin: () => !!window.adobeIMS?.isSignedInUser(),
+  loggedout: () => isSignedOut(),
+  loggedin: () => !isSignedOut(),
 };
 const PERSONALIZATION_KEYS = Object.keys(PERSONALIZATION_TAGS);
 /* c8 ignore stop */
@@ -182,7 +183,9 @@ const createFrag = (el, action, content, manifestId, targetManifestId) => {
   }
   const a = createTag('a', { href }, content);
   addIds(a, manifestId, targetManifestId);
-  const frag = createTag('p', undefined, a);
+  const noParagraphWrap = !!el?.parentElement?.closest('p')
+    || (el.nodeName === 'P' && action.includes('pend'));
+  const frag = noParagraphWrap ? a : createTag('p', undefined, a);
   const isDelayedModalAnchor = /#.*delay=/.test(href);
   if (isDelayedModalAnchor) frag.classList.add('hide-block');
   if (isInLcpSection(el)) {
@@ -238,18 +241,21 @@ const COMMANDS = {
     cmd.content = replacePlaceholders(cmd.content);
 
     let value;
-
     if (attribute === 'href' && parameter) {
       const href = el.getAttribute('href');
-      try {
-        const url = new URL(href);
-        const parameters = new URLSearchParams(url.search);
-        parameters.set(parameter, cmd.content);
-        url.search = parameters.toString();
-        value = url.toString();
-      } catch (error) {
-        /* c8 ignore next 2 */
-        console.log(`Invalid updateAttribute URL: ${href}`, error.message || error);
+      switch (parameter) {
+        case '#': el.href += el.href.includes(cmd.content) ? '' : cmd.content; break;
+        default:
+          try {
+            const url = new URL(href);
+            const parameters = new URLSearchParams(url.search);
+            parameters.set(parameter, cmd.content);
+            url.search = parameters.toString();
+            value = url.toString();
+          } catch (error) {
+            /* c8 ignore next 2 */
+            console.log(`Invalid updateAttribute URL: ${href}`, error.message || error);
+          }
       }
     } else {
       value = cmd.content;
@@ -631,7 +637,7 @@ export function handleCommands(
       const insertAnchor = getSelectorType(selector) === 'fragment' ? el.parentElement : el;
       insertAnchor?.insertAdjacentElement(
         CREATE_CMDS[action],
-        createContent(el, cmd),
+        createContent(insertAnchor, cmd),
       );
     });
     if ((els.length && !cmd.modifiers.includes(FLAGS.all))
@@ -1127,8 +1133,7 @@ function compareExecutionOrder(a, b) {
   return a.executionOrder > b.executionOrder ? 1 : -1;
 }
 
-export function cleanAndSortManifestList(manifests, conf) {
-  const config = conf ?? getConfig();
+export function cleanAndSortManifestList(manifests, config = getConfig()) {
   const manifestObj = {};
   let allManifests = manifests;
   let targetManifestWinsOverServerManifest = false;
@@ -1150,9 +1155,10 @@ export function cleanAndSortManifestList(manifests, conf) {
         freshManifest.selectedVariantName = fullManifest.selectedVariantName;
         targetManifestWinsOverServerManifest = config?.env?.name === 'prod' && fullManifest.selectedVariantName.startsWith('target-');
 
-        freshManifest.variants = targetManifestWinsOverServerManifest
-          ? fullManifest.variants
-          : freshManifest.variants;
+        if (targetManifestWinsOverServerManifest) {
+          freshManifest.variants = fullManifest.variants;
+          freshManifest.placeholderData = fullManifest.placeholderData;
+        }
 
         freshManifest.selectedVariant = freshManifest.variants[freshManifest.selectedVariantName];
         manifestObj[manifest.manifestPath] = freshManifest;
